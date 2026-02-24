@@ -75,7 +75,6 @@ AND author.affiliation.address.country_code:JP
 # 4. 실행
 # ==============================
 
-kr_solo = get_count(kr_solo_query)
 kr_us = get_count(kr_us_query)
 kr_jp = get_count(kr_jp_query)
 

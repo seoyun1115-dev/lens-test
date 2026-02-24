@@ -7,7 +7,7 @@ import pandas as pd
 
 LENS_API_URL = "https://api.lens.org/scholarly/search"
 
-API_TOKEN = "eTZyJz2Xm2rz59hMVTkz0ZB3jegploAsYH3JTurgRXV6iHgwAWTh"
+API_TOKEN = "토큰 보안사항이므로 정서윤에게 요청하세요. 이 토큰만 편집하시면 됩니다."
 
 HEADERS = {
     "Authorization": f"Bearer {API_TOKEN}",

@@ -23,7 +23,7 @@ COUNTRIES = {
 TECH_QUERIES = {
     "AI Semiconductor": '''
         publication_type:"journal article"
-        AND year_published:[2019 TO 2023]
+        AND year_published:[2024 TO 2025]
         AND (
           (semiconductor OR accelerator OR chip OR "Integrated Circuit" OR IC OR processor OR "System-on-Chip" OR SOC)
           AND
@@ -32,7 +32,7 @@ TECH_QUERIES = {
     ''',
      "고집적저항기반메모리": '''
         publication_type:"journal article"
-        AND year_published:[2019 TO 2023]
+        AND year_published:[2024 TO 2025]
         AND ((semiconductor OR memory OR DRAM OR NAND OR PRAM OR RERAM OR MRAM OR RRAM OR CBRAM OR PCRAM OR STT-RAM OR (Conductive-Bridging RAM) OR (Phase-Change RAM) OR (Spin-Transfer Torque RAM) OR (Non-Volatile Memory) OR NVM) AND (resistance OR resistive OR High-density OR HBM OR 3D stack*))
     '''
 }

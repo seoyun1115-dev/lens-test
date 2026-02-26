@@ -118,4 +118,4 @@ df.to_excel(
     index=False
 )
 
-print("✅ 엑셀 파일 생성 완료")
+print("엑셀 파일 생성 완료")

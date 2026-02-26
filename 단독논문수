@@ -1,0 +1,147 @@
+!pip install requests pandas openpyxl
+
+import requests
+import pandas as pd
+import time
+
+# -----------------------------
+# 1. 기본 설정
+# -----------------------------
+
+LENS_API_URL = "https://api.lens.org/scholarly/search"
+
+API_TOKEN = "eTZyJz2Xm2rz59hMVTkz0ZB3jegploAsYH3JTurgRXV6iHgwAWTh"
+
+HEADERS = {
+    "Authorization": f"Bearer {API_TOKEN}",
+    "Content-Type": "application/json"
+}
+
+COUNTRIES = {
+    "KR": "Korea",
+    "US": "United States",
+    "JP": "Japan",
+    "CN": "China",
+    "DE": "Germany",
+    "FR": "France",
+    "GB": "United Kingdom",
+    "IT": "Italy",
+    "ES": "Spain",
+    "NL": "Netherlands",
+    "AU": "Australia",
+    "CH": "Switzerland",
+    "IN": "India",
+    "CA": "Canada"
+}
+
+# 여기에 50개 기술 쿼리 전부 넣으면 됨
+TECH_QUERIES = {
+    "AI Semiconductor": '''
+        publication_type:"journal article"
+        AND year_published:[2019 TO 2023]
+        AND (
+          (semiconductor OR accelerator OR chip OR "Integrated Circuit" OR IC OR processor OR "System-on-Chip" OR SOC)
+          AND
+          ("Artificial Intelligen*" OR AI OR "neural network" OR neuromorphic OR "deep learning" OR "machine learning")
+        )
+    ''',
+
+    "고집적저항메모리": '''
+        publication_type:"journal article"
+        AND year_published:[2019 TO 2023]
+        AND (
+            (semiconductor OR memory OR DRAM OR NAND OR PRAM OR RERAM OR MRAM OR RRAM OR CBRAM OR PCRAM OR STT-RAM OR NVM)
+            AND
+            (resistance OR resistive OR "High-density" OR HBM OR "3D stack*")
+        )
+    '''
+}
+
+# -----------------------------
+# 2. count 함수 (공통)
+# -----------------------------
+
+def get_count(query_string):
+
+    payload = {
+        "query": {
+            "query_string": {
+                "query": query_string
+            }
+        },
+        "size": 0
+    }
+
+    response = requests.post(LENS_API_URL, headers=HEADERS, json=payload)
+
+    if response.status_code != 200:
+        print("ERROR:", response.status_code, response.text)
+        return 0
+
+    return response.json().get("total", 0)
+
+
+# -----------------------------
+# 3. 완전 단독 논문 계산 함수
+# -----------------------------
+
+def get_solo_count(tech_query, country_code):
+
+    # 전체
+    total_query = f'''
+    {tech_query}
+    AND author.affiliation.address.country_code:{country_code}
+    '''
+
+    # 국제공동 (해당국 + 다른국가 1개 이상)
+    international_query = f'''
+    {tech_query}
+    AND author.affiliation.address.country_code:{country_code}
+    AND author.affiliation.address.country_code:*
+    AND NOT author.affiliation.address.country_code:{country_code}
+    '''
+
+    total = get_count(total_query)
+    time.sleep(6)   #10회/분 제한 보호
+
+    international = get_count(international_query)
+    time.sleep(6)
+
+    solo = total - international
+
+    return solo
+
+
+# -----------------------------
+# 4. 실행 루프
+# -----------------------------
+
+results = []
+
+for tech_name, tech_query in TECH_QUERIES.items():
+
+    print(f"\n▶ Processing Technology: {tech_name}")
+
+    for country_code, country_name in COUNTRIES.items():
+
+        print(f"   - {country_name} 단독 계산 중...")
+
+        solo_count = get_solo_count(tech_query, country_code)
+
+        results.append({
+            "Technology": tech_name,
+            "Country": country_name,
+            "Solo_Papers": solo_count
+        })
+
+        print(f"     → {solo_count}")
+
+# -----------------------------
+# 5. 엑셀 저장
+# -----------------------------
+
+df = pd.DataFrame(results)
+
+df.to_excel("50개기술_14개국가_단독논문수.xlsx", index=False)
+
+print("\n 엑셀 파일 생성 완료")

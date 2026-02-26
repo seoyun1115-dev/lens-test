@@ -1,0 +1,121 @@
+!pip install requests pandas openpyxl
+
+import requests
+import pandas as pd
+import time
+
+LENS_API_URL = "https://api.lens.org/scholarly/search"
+
+API_TOKEN = "eTZyJz2Xm2rz59hMVTkz0ZB3jegploAsYH3JTurgRXV6iHgwAWTh"
+
+HEADERS = {
+    "Authorization": f"Bearer {API_TOKEN}",
+    "Content-Type": "application/json"
+}
+
+COUNTRIES = {
+    "KR": "Korea",
+    "US": "United States",
+    "JP": "Japan",
+    "CN": "China"
+}
+
+TECH_QUERIES = {
+    "AI Semiconductor": '''
+        publication_type:"journal article"
+        AND year_published:[2019 TO 2023]
+        AND (
+          (semiconductor OR accelerator OR chip OR "Integrated Circuit" OR IC OR processor OR "System-on-Chip" OR SOC)
+          AND
+          ("Artificial Intelligen*" OR AI OR "neural network" OR neuromorphic OR "deep learning" OR "machine learning")
+        )
+    ''',
+     "고집적저항기반메모리": '''
+        publication_type:"journal article"
+        AND year_published:[2019 TO 2023]
+        AND ((semiconductor OR memory OR DRAM OR NAND OR PRAM OR RERAM OR MRAM OR RRAM OR CBRAM OR PCRAM OR STT-RAM OR (Conductive-Bridging RAM) OR (Phase-Change RAM) OR (Spin-Transfer Torque RAM) OR (Non-Volatile Memory) OR NVM) AND (resistance OR resistive OR High-density OR HBM OR 3D stack*))
+    '''
+}
+
+def get_paper_count(query, base_country, partner_country):
+    # 단독 논문
+    if base_country == partner_country:
+        payload = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"query_string": {"query": query}},
+                        {"term": {"author.affiliation.address.country_code": base_country}}
+                    ],
+                    "must_not": [
+                        {"bool": {
+                            "must_not": {
+                                "term": {"author.affiliation.address.country_code": partner_country}
+                            }
+                        }}
+                    ]
+                }
+            },
+            "size": 0
+        }
+
+    # 공동 논문
+    else:
+        payload = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"query_string": {"query": query}},
+                        {"term": {"author.affiliation.address.country_code": base_country}},
+                        {"term": {"author.affiliation.address.country_code": partner_country}}
+                    ]
+                }
+            },
+            "size": 0
+        }
+
+    response = requests.post(LENS_API_URL, headers=HEADERS, json=payload)
+
+    if response.status_code != 200:
+        print("ERROR:", response.status_code, response.text)
+        return None
+
+    return response.json().get("total", 0)
+
+results = []
+
+for tech_name, tech_query in TECH_QUERIES.items():
+    print(f"▶ Processing technology: {tech_name}")
+
+    for base_code, base_name in COUNTRIES.items():
+        row = {
+            "Technology": tech_name,
+            "BaseCountry": base_name
+        }
+
+        for partner_code, partner_name in COUNTRIES.items():
+            if base_code == partner_code:
+                row[partner_name] = 0
+                continue
+
+            count = get_paper_count(
+    query=tech_query,
+    base_country=base_code,
+    partner_country=partner_code
+)
+
+            row[partner_name] = count
+
+            time.sleep(6)  # rate limit 보호용
+
+        results.append(row)
+
+
+df = pd.DataFrame(results)
+
+df.to_excel(
+    "50대_세부기술_국가별_공동협력논문수.xlsx",
+    index=False
+)
+
+print("✅ 엑셀 파일 생성 완료")

@@ -1,0 +1,126 @@
+!pip install requests pandas openpyxl
+
+import requests
+import pandas as pd
+import time
+
+# -----------------------------
+# 1. 기본 설정
+# -----------------------------
+
+LENS_API_URL = "https://api.lens.org/scholarly/search"
+API_TOKEN = "eTZyJz2Xm2rz59hMVTkz0ZB3jegploAsYH3JTurgRXV6iHgwAWTh"
+
+HEADERS = {
+    "Authorization": f"Bearer {API_TOKEN}",
+    "Content-Type": "application/json"
+}
+
+COUNTRIES = {
+    "CN": "China",
+    "US": "United States",
+    "GB": "United Kingdom",
+    "KR": "Korea"
+}
+
+TECH_QUERIES = {
+
+    "고집적저항기반메모리": '''
+        publication_type:"journal article"
+        AND year_published:[2019 TO 2023]
+        AND (
+            (semiconductor OR memory OR DRAM OR NAND OR PRAM OR RERAM OR MRAM OR RRAM OR CBRAM OR PCRAM OR STT-RAM 
+            OR "Conductive-Bridging RAM" OR "Phase-Change RAM" OR "Spin-Transfer Torque RAM" 
+            OR "Non-Volatile Memory" OR NVM)
+            AND
+            (resistance OR resistive OR "High-density" OR HBM OR "3D stack*")
+        )
+    ''',
+
+    "인공지능 반도체": '''
+        publication_type:"journal article"
+        AND year_published:[2019 TO 2023]
+        AND (
+            (semiconductor OR accelerator OR chip OR "Integrated Circuit" OR IC 
+            OR processor OR "System-on-Chip" OR "System-on-Module" OR SOC)
+            AND
+            ("Artificial Intelligen*" OR AI OR "neural network" OR neuromorphic 
+            OR "deep learning" OR "machine learning" 
+            OR inferenc* OR Decision OR Cognition OR Judgment OR Reasoning)
+        )
+    '''
+}
+
+# -----------------------------
+# 2. 총 피인용수 함수
+# -----------------------------
+
+def get_total_citations(query_string):
+
+    payload = {
+        "query": {
+            "query_string": {
+                "query": query_string
+            }
+        },
+        "size": 0,
+        "aggs": {
+            "total_citations": {
+                "sum": {
+                    "field": "scholarly_citations_count"
+                }
+            }
+        }
+    }
+
+    response = requests.post(LENS_API_URL, headers=HEADERS, json=payload)
+
+    if response.status_code != 200:
+        print("ERROR:", response.status_code)
+        return 0
+
+    data = response.json()
+    return int(data["aggregations"]["total_citations"]["value"] or 0)
+
+
+# -----------------------------
+# 3. 실행 루프
+# -----------------------------
+
+results = []
+
+for tech_name, tech_query in TECH_QUERIES.items():
+
+    print(f"\n▶ Technology: {tech_name}")
+
+    for code, country in COUNTRIES.items():
+
+        print(f"   - {country} 피인용수 계산 중...")
+
+        query = f"""
+        {tech_query}
+        AND author.affiliation.address.country_code:{code}
+        """
+
+        citations = get_total_citations(query)
+        time.sleep(6)
+
+        results.append({
+            "Technology": tech_name,
+            "Country": country,
+            "Total_Citations": citations
+        })
+
+        print(f"     → {citations}")
+
+# -----------------------------
+# 4. 매트릭스 형태 저장
+# -----------------------------
+
+df = pd.DataFrame(results)
+
+pivot_df = df.pivot(index="Country", columns="Technology", values="Total_Citations")
+
+pivot_df.to_excel("테스트_총피인용수_매트릭스.xlsx")
+
+print("총 피인용수 엑셀 저장 완료")
